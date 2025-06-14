@@ -1,0 +1,24 @@
+# Binaries
+/bin
+
+# IDE files
+.vscode
+.idea
+
+# Go build files
+*.o
+*.out
+
+# Go test files
+*_test.go
+
+# Dependency files
+Godeps
+vendor
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# yt-dlp-venv
+yt-dlp-venv/
