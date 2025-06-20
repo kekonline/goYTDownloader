@@ -7,8 +7,11 @@ import (
 	"goYTDownloader/internal/handler"
 )
 
+// create . env file with server name
+
 func main() {
-	http.HandleFunc("/api/audio-stream", handler.AudioStreamHandler)
+	http.HandleFunc("/api/audio-stream", handler.WithCORS(handler.AudioStreamHandler))
+	// http.HandleFunc("/api/audio-stream", handler.AudioStreamHandler)
 	log.Println("Server running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
