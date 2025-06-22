@@ -22,3 +22,6 @@ Thumbs.db
 
 # yt-dlp-venv
 yt-dlp-venv/
+
+# Environment files
+.env
