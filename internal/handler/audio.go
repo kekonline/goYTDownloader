@@ -3,13 +3,15 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"goYTDownloader/internal/model"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 
-	"goYTDownloader/internal/model"
+	"github.com/joho/godotenv"
 )
 
 func AudioStreamHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,8 +42,18 @@ func AudioStreamHandler(w http.ResponseWriter, r *http.Request) {
 	filename := strings.TrimSpace(string(output))
 	log.Printf("Streaming audio for: %s", filename)
 
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
+	err = godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	HOST := os.Getenv("HOST")
+
+	origin := r.Header.Get("Origin")
+	if origin == HOST {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
+	}
 	w.Header().Set("Content-Type", "audio/webm")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 
