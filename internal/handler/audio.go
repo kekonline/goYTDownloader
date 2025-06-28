@@ -67,12 +67,33 @@ func AudioStreamHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type Song struct {
+	Title string
+	Data  []byte
+}
+
 func AudioStreamHandlerMultipleFilesPoc(w http.ResponseWriter, r *http.Request) {
+	numWorkers := 3
+
 	var req model.DownloadRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
+
+	urls := strings.Split(req.URL, ",")
+	numJobs := len(urls)
+
+	if numJobs == 0 {
+		http.Error(w, "No URLs provided", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Received URLs: %v", urls)
+	log.Printf("Number of jobs: %d", numJobs)
+
+	jobs := make(chan string, numJobs)
+	results := make(chan Song, numJobs)
 
 	cmd := exec.Command("yt-dlp", "-f", "bestaudio", "-o", "-", req.URL)
 	stdout, err := cmd.StdoutPipe()
