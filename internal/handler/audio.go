@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"goYTDownloader/internal/model"
@@ -10,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
@@ -90,53 +93,132 @@ func AudioStreamHandlerMultipleFilesPoc(w http.ResponseWriter, r *http.Request) 
 	}
 
 	log.Printf("Received URLs: %v", urls)
-	log.Printf("Number of jobs: %d", numJobs)
 
 	jobs := make(chan string, numJobs)
 	results := make(chan Song, numJobs)
 
-	cmd := exec.Command("yt-dlp", "-f", "bestaudio", "-o", "-", req.URL)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		http.Error(w, "Failed to get yt-dlp output", http.StatusInternalServerError)
-		return
+	var wg sync.WaitGroup
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go Worker(i, jobs, results, &wg)
 	}
 
-	if err := cmd.Start(); err != nil {
-		http.Error(w, "Failed to start yt-dlp", http.StatusInternalServerError)
-		return
-	}
+	go func() {
+		for _, url := range urls {
+			jobs <- strings.TrimSpace(url)
+		}
+		close(jobs)
+	}()
 
-	cmdName := exec.Command("yt-dlp", "--get-filename", "-o", "%(title)s.%(ext)s", req.URL)
-	output, err := cmdName.Output()
-	if err != nil {
-		http.Error(w, "Failed to get filename", http.StatusInternalServerError)
-		return
-	}
-	filename := strings.TrimSpace(string(output))
-	log.Printf("Streaming audio for: %s", filename)
+	wg.Wait()
+	close(results)
 
-	err = godotenv.Load()
-	if err != nil {
+	// Load .env and set headers
+	if err := godotenv.Load(); err != nil {
 		log.Fatalf("Error loading .env file")
 	}
-
 	HOST := os.Getenv("HOST")
-
 	origin := r.Header.Get("Origin")
 	if origin == HOST {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
 	}
-	w.Header().Set("Content-Type", "audio/webm")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="audio_files.zip"`)
 
-	_, err = io.Copy(w, stdout)
-	if err != nil {
-		log.Printf("Error streaming audio: %v", err)
+	zipWriter := zip.NewWriter(w)
+	defer zipWriter.Close()
+
+	filesWritten := 0
+	for result := range results {
+		if result.Data == nil {
+			log.Printf("Skipping empty result: %s", result.Title)
+			continue
+		}
+
+		f, err := zipWriter.Create(result.Title)
+		if err != nil {
+			log.Printf("Failed to create zip entry for %s: %v", result.Title, err)
+			continue
+		}
+
+		_, err = f.Write(result.Data)
+		if err != nil {
+			log.Printf("Failed to write data for %s: %v", result.Title, err)
+			continue
+		}
+
+		filesWritten++
 	}
 
-	if err := cmd.Wait(); err != nil {
-		log.Printf("yt-dlp command error: %v", err)
+	if filesWritten == 0 {
+		http.Error(w, "All downloads failed", http.StatusInternalServerError)
+	}
+}
+
+func Worker(id int, jobs <-chan string, results chan<- Song, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for job := range jobs {
+		log.Printf("Worker %d: downloading %s", id, job)
+
+		// Added --no-playlist to avoid playlist hangs; remove if you want playlist support
+		cmd := exec.Command("yt-dlp", "--no-playlist", "-f", "bestaudio", "-o", "-", job)
+		cmd.Stdin = nil
+
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			log.Printf("Worker %d: Failed to get stdout for %s: %v", id, job, err)
+			results <- Song{Title: "", Data: nil}
+			continue
+		}
+
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			log.Printf("Worker %d: Failed to get stderr for %s: %v", id, job, err)
+			results <- Song{Title: "", Data: nil}
+			continue
+		}
+
+		if err := cmd.Start(); err != nil {
+			log.Printf("Worker %d: Failed to start yt-dlp for %s: %v", id, job, err)
+			results <- Song{Title: "", Data: nil}
+			continue
+		}
+
+		var stderrBuf bytes.Buffer
+		go func() {
+			io.Copy(&stderrBuf, stderr)
+		}()
+
+		// Get the filename
+		cmdName := exec.Command("yt-dlp", "--no-playlist", "--get-filename", "-o", "%(title)s.%(ext)s", job)
+		output, err := cmdName.Output()
+		if err != nil {
+			log.Printf("Worker %d: Failed to get filename for %s: %v", id, job, err)
+			results <- Song{Title: "", Data: nil}
+			_ = cmd.Wait()
+			continue
+		}
+		filename := strings.TrimSpace(string(output))
+
+		// Read audio stream
+		data, err := io.ReadAll(stdout)
+		if err != nil {
+			log.Printf("Worker %d: Failed to read audio for %s: %v", id, job, err)
+			results <- Song{Title: filename, Data: nil}
+			_ = cmd.Wait()
+			continue
+		}
+
+		if err := cmd.Wait(); err != nil {
+			log.Printf("Worker %d: yt-dlp process error for %s: %v\nStderr: %s", id, job, err, stderrBuf.String())
+		}
+
+		results <- Song{
+			Title: filename,
+			Data:  data,
+		}
 	}
 }
