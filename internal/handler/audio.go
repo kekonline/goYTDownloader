@@ -3,6 +3,7 @@ package handler
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"goYTDownloader/internal/model"
@@ -13,9 +14,85 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/joho/godotenv"
 )
+
+const (
+	maxStreamSize = 50 * 1024 * 1024 // 50MB
+	timeout       = 60 * time.Second // Timeout for entire operation
+)
+
+func AudioStreamHandlerV2(w http.ResponseWriter, r *http.Request) {
+	// Apply a timeout to the whole request
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	defer cancel()
+
+	var req model.DownloadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		fmt.Printf("Invalid JSON request: %v\n", err)
+		return
+	}
+
+	// Check if yt-dlp is installed
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		http.Error(w, "yt-dlp is not installed or not in PATH", http.StatusServiceUnavailable)
+		fmt.Printf("yt-dlp not found: %v\n", err)
+		return
+	}
+
+	// Get the filename
+	cmdName := exec.CommandContext(ctx, "yt-dlp", "--get-filename", "-o", "%(title)s.%(ext)s", req.URL)
+	output, err := cmdName.Output()
+	if err != nil {
+		http.Error(w, "Failed to get filename", http.StatusInternalServerError)
+		fmt.Printf("Failed to get filename: %v\n", err)
+		return
+	}
+	filename := strings.TrimSpace(string(output))
+	fmt.Printf("Streaming audio for: %s\n", filename)
+
+	// Start yt-dlp streaming audio to stdout
+	cmd := exec.CommandContext(ctx, "yt-dlp", "-f", "bestaudio", "-o", "-", req.URL)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		http.Error(w, "Failed to get yt-dlp output", http.StatusInternalServerError)
+		fmt.Printf("StdoutPipe error: %v\n", err)
+		return
+	}
+	if err := cmd.Start(); err != nil {
+		http.Error(w, "Failed to start yt-dlp", http.StatusInternalServerError)
+		fmt.Printf("Start error: %v\n", err)
+		return
+	}
+
+	// Load environment variables
+	if err := godotenv.Load(); err != nil {
+		fmt.Printf("Warning: .env file not loaded: %v\n", err)
+	}
+	HOST := os.Getenv("HOST")
+	if origin := r.Header.Get("Origin"); origin == HOST {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
+	}
+
+	w.Header().Set("Content-Type", "audio/webm")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+
+	// Limit the amount of data streamed
+	limitedReader := io.LimitReader(stdout, maxStreamSize)
+	_, err = io.Copy(w, limitedReader)
+	if err != nil {
+		fmt.Printf("Streaming error: %v\n", err)
+	}
+
+	// Wait for yt-dlp to finish
+	if err := cmd.Wait(); err != nil {
+		fmt.Printf("yt-dlp finished with error: %v\n", err)
+	}
+}
 
 func AudioStreamHandler(w http.ResponseWriter, r *http.Request) {
 	var req model.DownloadRequest
@@ -45,9 +122,8 @@ func AudioStreamHandler(w http.ResponseWriter, r *http.Request) {
 	filename := strings.TrimSpace(string(output))
 	log.Printf("Streaming audio for: %s", filename)
 
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: .env file not loaded: %v", err)
 	}
 
 	HOST := os.Getenv("HOST")

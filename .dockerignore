@@ -1,0 +1,9 @@
+# Prevent local virtual envs and other unnecessary files from being sent to Docker
+venv/
+.venv/
+yt-dlp-venv/
+node_modules/
+*.pyc
+*.log
+__pycache__/
+.DS_Store

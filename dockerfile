@@ -8,32 +8,24 @@ RUN apt-get update && \
 
 ENV PATH="/venv/bin:$PATH"
 
-
-# Set workdir
 WORKDIR /app
 
-# Copy code
+# Copy go.mod and go.sum separately to leverage Docker cache for deps
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy all source code
 COPY . .
 
-# Build Go app
-RUN go mod tidy
-RUN go build -o app
+# Build the Go app, specifying the main package directory
+RUN go build -o app ./cmd/server
 
-# Expose port
 EXPOSE 8080
 
-# Run binary
 CMD ["./app"]
 
-# 1. Make changes in code
 
-# 2. Rebuild the image
-# docker build -t goytdownloader .
-
-# 3. Stop the running container (if any)
-# docker ps  # Find the container ID
-# docker stop <container-id>
-
-# 4. Run it again
-# docker run -p 8080:8080 goytdownloader
+# go test ./internal/handler -v
+# docker build -t my-go-audio-app .
+# docker run -p 8080:8080 my-go-audio-app
 
