@@ -9,34 +9,32 @@ import (
 
 func WithCORS(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		hostFromEnv := os.Getenv("HOST")
-
-		// Log all values
 		log.Println("🧠 Debug CORS Middleware")
-		log.Printf("📥 Request Origin: %q\n", origin)
-		log.Printf("📦 HOST from .env: %q\n", hostFromEnv)
 
-		// Check if they match exactly
-		if origin == hostFromEnv {
-			log.Println("✅ Origin matches HOST from .env — setting CORS header.")
+		origin := r.Header.Get("Origin")
+		log.Printf("📥 Request Origin: %q\n", origin)
+
+		host := os.Getenv("HOST")
+		log.Printf("📦 HOST from .env: %q\n", host)
+
+		if origin == host {
+			log.Println("✅ Origin matches HOST from .env — setting CORS headers")
 			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		} else {
-			log.Println("❌ Origin does NOT match HOST — CORS header NOT set.")
+			log.Println("❌ Origin did not match — no CORS headers set")
 		}
 
-		// Always log what CORS headers were actually set
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Vary", "Origin")
-
-		// Handle OPTIONS preflight
-		if r.Method == "OPTIONS" {
+		// Handle preflight request
+		if r.Method == http.MethodOptions {
+			log.Println("🚦 OPTIONS Preflight request — returning early")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
-		h.ServeHTTP(w, r)
+		// Continue with normal handler
+		h(w, r)
 	}
 }
