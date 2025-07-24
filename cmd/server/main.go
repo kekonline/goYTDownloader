@@ -9,7 +9,8 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/api/audio-stream", handler.WithCORS(handler.AudioStreamHandler))
+	http.HandleFunc("/api/audio-stream", handler.AudioStreamHandler)
+	http.HandleFunc("/api/audio-stream-with-cors", handler.WithCORS(handler.AudioStreamHandler))
 	http.HandleFunc("/api/audio-stream-multiple-files-poc", handler.WithCORS(handler.AudioStreamHandlerMultipleFilesPoc))
 	http.HandleFunc("/api/audio-streamv2", handler.WithCORS(handler.AudioStreamHandlerV2))
 
