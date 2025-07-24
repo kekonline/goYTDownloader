@@ -2,7 +2,7 @@
 package handler
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -12,23 +12,22 @@ import (
 func WithCORS(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Load .env file
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatalf("Error loading .env file in cors middleware: %v", err)
+		if err := godotenv.Load(); err != nil {
+			fmt.Printf("Warning: .env file not loaded: %v\n", err)
 		}
 
 		HOST := os.Getenv("HOST")
 
-		log.Printf("CORS middleware: HOST=%s", HOST)
+		// log.Printf("CORS middleware: HOST=%s", HOST)
 
 		// Got from request headers
-		log.Printf("CORS middleware: Origin=%s", r.Header.Get("Origin"))
-		log.Printf("CORS middleware: Method=%s", r.Method)
-		log.Printf("CORS middleware: Headers=%v", r.Header)
-		log.Printf("CORS middleware: URL=%s", r.URL)
-		log.Printf("CORS middleware: RemoteAddr=%s", r.RemoteAddr)
-		log.Printf("CORS middleware: RequestURI=%s", r.RequestURI)
-		log.Printf("CORS middleware: Host=%s", r.Host)
+		// log.Printf("CORS middleware: Origin=%s", r.Header.Get("Origin"))
+		// log.Printf("CORS middleware: Method=%s", r.Method)
+		// log.Printf("CORS middleware: Headers=%v", r.Header)
+		// log.Printf("CORS middleware: URL=%s", r.URL)
+		// log.Printf("CORS middleware: RemoteAddr=%s", r.RemoteAddr)
+		// log.Printf("CORS middleware: RequestURI=%s", r.RequestURI)
+		// log.Printf("CORS middleware: Host=%s", r.Host)
 
 		// Allow your frontend origin here
 		w.Header().Set("Access-Control-Allow-Origin", HOST)
