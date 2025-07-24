@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"os"
 )
@@ -9,23 +10,33 @@ import (
 func WithCORS(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		allowedOrigin := os.Getenv("HOST") // e.g., https://goyoutubeaudiodownloader.netlify.app
+		hostFromEnv := os.Getenv("HOST")
 
-		// Optional: allow local dev too
-		if origin == allowedOrigin || origin == "http://localhost:5173" {
+		// Log all values
+		log.Println("🧠 Debug CORS Middleware")
+		log.Printf("📥 Request Origin: %q\n", origin)
+		log.Printf("📦 HOST from .env: %q\n", hostFromEnv)
+
+		// Check if they match exactly
+		if origin == hostFromEnv {
+			log.Println("✅ Origin matches HOST from .env — setting CORS header.")
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Vary", "Origin") // Inform proxies to vary based on Origin
+		} else {
+			log.Println("❌ Origin does NOT match HOST — CORS header NOT set.")
 		}
 
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		// Always log what CORS headers were actually set
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Vary", "Origin")
 
-		// Preflight request
-		if r.Method == http.MethodOptions {
+		// Handle OPTIONS preflight
+		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
-		h(w, r)
+		h.ServeHTTP(w, r)
 	}
 }
