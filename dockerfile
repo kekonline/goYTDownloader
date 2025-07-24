@@ -17,10 +17,16 @@ RUN go mod download
 # Copy all source code
 COPY . .
 
+# Set environment variable for Render's dynamic port
+ENV PORT=8080  
+# This is optional, Render overrides it anyway
+
+# Expose the port for documentation purposes
+EXPOSE 8080
+
+
 # Build the Go app, specifying the main package directory
 RUN go build -o app ./cmd/server
-
-EXPOSE 10000
 
 CMD ["./app"]
 
