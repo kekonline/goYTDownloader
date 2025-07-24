@@ -192,7 +192,7 @@ func AudioStreamHandlerMultipleFilesPoc(w http.ResponseWriter, r *http.Request) 
 
 	// Load .env and set headers
 	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Error loading .env file")
+		log.Printf("Error loading .env file")
 	}
 	HOST := os.Getenv("HOST")
 	origin := r.Header.Get("Origin")
