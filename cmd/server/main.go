@@ -1,14 +1,17 @@
 package main
 
 import (
+	"fmt"
+	"goYTDownloader/internal/handler"
 	"log"
 	"net/http"
 	"os"
-
-	"goYTDownloader/internal/handler"
 )
 
 func main() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello from goYTDownloader!")
+	})
 	http.HandleFunc("/api/audio-stream", handler.AudioStreamHandler)
 	http.HandleFunc("/api/audio-stream-with-cors", handler.WithCORS(handler.AudioStreamHandler))
 	http.HandleFunc("/api/audio-stream-multiple-files-poc", handler.WithCORS(handler.AudioStreamHandlerMultipleFilesPoc))
