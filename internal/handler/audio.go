@@ -123,7 +123,7 @@ func AudioStreamHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Streaming audio for: %s", filename)
 
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not loaded: %v", err)
+		fmt.Printf("Warning: .env file not loaded: %v", err)
 	}
 
 	HOST := os.Getenv("HOST")
