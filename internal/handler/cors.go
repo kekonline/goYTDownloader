@@ -18,16 +18,16 @@ func WithCORS(h http.HandlerFunc) http.HandlerFunc {
 
 		HOST := os.Getenv("HOST")
 
-		// log.Printf("CORS middleware: HOST=%s", HOST)
+		fmt.Printf("CORS middleware: HOST=%s", HOST)
 
 		// Got from request headers
-		// log.Printf("CORS middleware: Origin=%s", r.Header.Get("Origin"))
-		// log.Printf("CORS middleware: Method=%s", r.Method)
-		// log.Printf("CORS middleware: Headers=%v", r.Header)
-		// log.Printf("CORS middleware: URL=%s", r.URL)
-		// log.Printf("CORS middleware: RemoteAddr=%s", r.RemoteAddr)
-		// log.Printf("CORS middleware: RequestURI=%s", r.RequestURI)
-		// log.Printf("CORS middleware: Host=%s", r.Host)
+		fmt.Printf("CORS middleware: Origin=%s", r.Header.Get("Origin"))
+		fmt.Printf("CORS middleware: Method=%s", r.Method)
+		fmt.Printf("CORS middleware: Headers=%v", r.Header)
+		fmt.Printf("CORS middleware: URL=%s", r.URL)
+		fmt.Printf("CORS middleware: RemoteAddr=%s", r.RemoteAddr)
+		fmt.Printf("CORS middleware: RequestURI=%s", r.RequestURI)
+		fmt.Printf("CORS middleware: Host=%s", r.Host)
 
 		// Allow your frontend origin here
 		w.Header().Set("Access-Control-Allow-Origin", HOST)
