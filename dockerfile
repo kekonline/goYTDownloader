@@ -20,7 +20,7 @@ COPY . .
 # Build the Go app, specifying the main package directory
 RUN go build -o app ./cmd/server
 
-EXPOSE 8080
+EXPOSE 10000
 
 CMD ["./app"]
 
